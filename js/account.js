@@ -18,6 +18,9 @@
     username: document.getElementById("auth-username"),
     password: document.getElementById("auth-password"),
     typeFieldset: document.getElementById("auth-type-fieldset"),
+    devCodeRow: document.getElementById("auth-dev-code-row"),
+    devCode: document.getElementById("auth-dev-code"),
+    devTab: document.getElementById("tab-dev"),
     warning: document.getElementById("auth-warning"),
     error: document.getElementById("auth-error"),
     submit: document.getElementById("auth-submit"),
@@ -35,6 +38,7 @@
     els.warning.hidden = !signup;
     els.submit.textContent = signup ? "Create account" : "Sign in";
     els.password.autocomplete = signup ? "new-password" : "current-password";
+    updateDevCodeRow();
     showError("");
   }
 
@@ -59,6 +63,10 @@
     return els.form.querySelector('input[name="auth-type"]:checked').value;
   }
 
+  function updateDevCodeRow() {
+    els.devCodeRow.hidden = mode !== "signup" || accountType() !== "developer";
+  }
+
   function onAuthChange(profile) {
     var signedIn = !!profile;
     els.name.hidden = !signedIn;
@@ -70,6 +78,12 @@
     if (!signedIn) {
       var track = document.getElementById("qr-track");
       if (track) track.checked = false;
+    }
+    // The Developer tab exists only for developer accounts.
+    var isDev = signedIn && profile.accountType === "developer";
+    els.devTab.hidden = !isDev;
+    if (!isDev && !document.getElementById("panel-dev").hidden) {
+      document.getElementById("tab-qr").click();
     }
   }
 
@@ -90,7 +104,7 @@
     var password = els.password.value;
     els.submit.disabled = true;
     var action = mode === "signup"
-      ? Backend.signUp(username, password, accountType())
+      ? Backend.signUp(username, password, accountType(), els.devCode.value.trim())
       : Backend.signIn(username, password);
     action.then(function () {
       els.submit.disabled = false;
@@ -121,6 +135,7 @@
   });
   els.modeSignin.addEventListener("click", function () { setMode("signin"); });
   els.modeSignup.addEventListener("click", function () { setMode("signup"); });
+  els.typeFieldset.addEventListener("change", updateDevCodeRow);
   els.form.addEventListener("submit", submit);
   setMode("signin");
 })();

@@ -31,6 +31,7 @@
     <button id="tab-qr" class="tab active" role="tab" aria-selected="true" aria-controls="panel-qr">QR Code</button>
     <button id="tab-barcode" class="tab" role="tab" aria-selected="false" aria-controls="panel-barcode">Barcode</button>
     <button id="tab-analytics" class="tab" role="tab" aria-selected="false" aria-controls="panel-analytics">Analytics</button>
+    <button id="tab-dev" class="tab" role="tab" aria-selected="false" aria-controls="panel-dev" hidden>Developer</button>
   </nav>
 </header>
 
@@ -198,6 +199,11 @@
   <section id="panel-analytics" class="panel" role="tabpanel" aria-labelledby="tab-analytics" hidden>
     <div id="analytics-root"></div>
   </section>
+
+  <!-- ============ DEVELOPER PANEL ============ -->
+  <section id="panel-dev" class="panel" role="tabpanel" aria-labelledby="tab-dev" hidden>
+    <div id="dev-root"></div>
+  </section>
 </main>
 
 <!-- ============ ACCOUNT MODAL ============ -->
@@ -226,7 +232,15 @@
             <strong>Business Owner</strong> — scan trends, devices, geography, top codes</label>
           <label><input type="radio" name="auth-type" value="personal">
             <strong>Personal Hobbyist</strong> — milestones, streaks, fun achievements</label>
+          <label><input type="radio" name="auth-type" value="developer">
+            <strong>Developer</strong> — site-wide trends (verification code required)</label>
         </div>
+        <label id="auth-dev-code-row" hidden>Developer verification code
+          <input type="password" id="auth-dev-code" maxlength="40" autocomplete="off"
+            placeholder="20-character code">
+        </label>
+        <div class="meta">To get a dev account, consult with the developer:
+          <a href="https://github.com/Mrpkm" target="_blank" rel="noopener">github.com/Mrpkm</a></div>
       </fieldset>
       <div id="auth-warning" class="msg warn" hidden>
         No email is collected, so a forgotten password <strong>cannot be recovered</strong> —
@@ -258,6 +272,7 @@
 <script src="js/account.js"></script>
 <script src="js/community.js"></script>
 <script src="js/analytics.js"></script>
+<script src="js/dev.js"></script>
 <script src="js/tabs.js"></script>
 </body>
 </html>

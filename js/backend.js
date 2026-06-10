@@ -68,7 +68,10 @@
   }
 
   // --- Accounts ----------------------------------------------------------------
-  function signUp(username, password, accountType) {
+  /* Profile creation goes through the register_profile RPC: 'developer'
+   * accounts require a verification code checked server-side against a bcrypt
+   * hash, so the code never exists anywhere a client could read it. */
+  function signUp(username, password, accountType, devCode) {
     if (!client) return Promise.reject(new Error("Cloud features are not configured."));
     if (!USERNAME_RE.test(username)) {
       return Promise.reject(new Error("Username must be 3–20 characters: letters, digits, underscore."));
@@ -88,15 +91,17 @@
           // Email confirmations were left enabled in the Supabase dashboard.
           throw new Error("Signup needs email confirmation disabled in the Supabase project settings (see README).");
         }
-        return client.from("profiles")
-          .insert({ id: res.data.user.id, username: username, account_type: accountType });
+        return client.rpc("register_profile", {
+          p_username: username, p_account_type: accountType, p_dev_code: devCode || null
+        });
       })
       .then(function (res) {
         if (res.error) {
-          var taken = res.error.code === "23505";
-          return client.auth.signOut().then(function () {
-            throw new Error(taken ? "That username is already taken." : res.error.message);
-          });
+          var msg = res.error.code === "23505" ? "That username is already taken."
+            : /invalid developer verification code/i.test(res.error.message)
+              ? "That developer verification code is not valid."
+              : res.error.message;
+          return client.auth.signOut().then(function () { throw new Error(msg); });
         }
         return client.auth.getUser();
       })
@@ -216,6 +221,15 @@
     return Promise.all(work).then(function () { return result; });
   }
 
+  // Site-wide trends; the RPC itself rejects callers without a developer profile.
+  function fetchDevOverview() {
+    if (!client || !profile) return Promise.reject(new Error("Sign in with a developer account."));
+    return client.rpc("dev_overview").then(function (res) {
+      if (res.error) throw new Error(res.error.message);
+      return res.data;
+    });
+  }
+
   // --- Guest-history merge -----------------------------------------------------------
   function hasUnmergedHistory() {
     if (!client || !profile) return Promise.resolve(false);
@@ -258,6 +272,7 @@
     createTrackedCode: createTrackedCode,
     trackUrlFor: trackUrlFor,
     fetchAnalytics: fetchAnalytics,
+    fetchDevOverview: fetchDevOverview,
     hasUnmergedHistory: hasUnmergedHistory,
     mergeGuestHistory: mergeGuestHistory
   };
