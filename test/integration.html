@@ -4,15 +4,32 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CodeSafe — Reliable QR &amp; Barcode Generator</title>
-<link rel="stylesheet" href="css/styles.css">
+<link rel="stylesheet" href="../css/styles.css">
 </head>
 <body>
 <header>
+  <div id="account-area" class="account-area" hidden>
+    <span id="account-name" hidden></span>
+    <button type="button" id="account-signin" class="account-btn">Sign in</button>
+    <button type="button" id="account-signout" class="account-btn" hidden>Sign out</button>
+  </div>
   <h1>CodeSafe</h1>
   <p class="tagline">QR codes &amp; barcodes generated entirely in your browser — nothing leaves this page.</p>
+
+  <div id="community-banner" class="community-banner" hidden>
+    <div class="community-text" aria-live="polite">
+      QR Codes Successfully Generated:
+      <strong id="community-total">…</strong> / <span id="community-goal">…</span>
+      <button type="button" id="community-history-btn" class="link-btn" title="Past milestones">🏆</button>
+    </div>
+    <div class="community-bar"><div id="community-bar-fill" class="community-bar-fill"></div></div>
+    <div id="community-history" class="community-history" hidden></div>
+  </div>
+
   <nav class="tabs" role="tablist">
     <button id="tab-qr" class="tab active" role="tab" aria-selected="true" aria-controls="panel-qr">QR Code</button>
     <button id="tab-barcode" class="tab" role="tab" aria-selected="false" aria-controls="panel-barcode">Barcode</button>
+    <button id="tab-analytics" class="tab" role="tab" aria-selected="false" aria-controls="panel-analytics">Analytics</button>
   </nav>
 </header>
 
@@ -27,6 +44,13 @@
           <textarea id="qr-data" rows="5" maxlength="7089"
             placeholder="Enter text, a URL, or any data (up to 4,000+ characters)">https://example.com</textarea>
           <div id="qr-capacity-info" class="meta"></div>
+          <div id="qr-track-row" hidden>
+            <label class="check"><input type="checkbox" id="qr-track"> Track scans (creates a short link)</label>
+            <label id="qr-track-label-row" hidden>Name for analytics
+              <input type="text" id="qr-track-label" maxlength="60" placeholder="e.g. Spring flyer">
+            </label>
+            <div id="qr-track-info" class="meta"></div>
+          </div>
         </fieldset>
 
         <fieldset>
@@ -168,18 +192,71 @@
       </div>
     </div>
   </section>
+
+  <!-- ============ ANALYTICS PANEL ============ -->
+  <section id="panel-analytics" class="panel" role="tabpanel" aria-labelledby="tab-analytics" hidden>
+    <div id="analytics-root"></div>
+  </section>
 </main>
 
+<!-- ============ ACCOUNT MODAL ============ -->
+<div id="auth-modal" class="modal-overlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+    <button type="button" id="auth-close" class="modal-close" aria-label="Close">×</button>
+    <h2 id="auth-title">Account</h2>
+    <div class="auth-switch" role="tablist">
+      <button type="button" id="auth-mode-signin" class="auth-mode active">Sign in</button>
+      <button type="button" id="auth-mode-signup" class="auth-mode">Create account</button>
+    </div>
+    <form id="auth-form">
+      <label>Username
+        <input type="text" id="auth-username" autocomplete="username"
+          maxlength="20" pattern="[A-Za-z0-9_]{3,20}" required
+          placeholder="3–20 letters, digits, underscore">
+      </label>
+      <label>Password
+        <input type="password" id="auth-password" autocomplete="current-password"
+          minlength="8" required placeholder="At least 8 characters">
+      </label>
+      <fieldset id="auth-type-fieldset">
+        <legend>How will you use CodeSafe?</legend>
+        <div class="radio-col">
+          <label><input type="radio" name="auth-type" value="business" checked>
+            <strong>Business Owner</strong> — scan trends, devices, geography, top codes</label>
+          <label><input type="radio" name="auth-type" value="personal">
+            <strong>Personal Hobbyist</strong> — milestones, streaks, fun achievements</label>
+        </div>
+      </fieldset>
+      <div id="auth-warning" class="msg warn" hidden>
+        No email is collected, so a forgotten password <strong>cannot be recovered</strong> —
+        the account would be lost. Choose a password you can keep.
+      </div>
+      <div id="auth-error" class="msg error" hidden></div>
+      <button type="submit" id="auth-submit">Sign in</button>
+    </form>
+  </div>
+</div>
+
 <footer>
-  <p>All generation happens locally in your browser. No data is uploaded anywhere.</p>
+  <p>All generation happens locally in your browser. Codes and their content are never uploaded —
+  only generation counts and, for tracked codes you create on purpose, scan events are stored.</p>
 </footer>
 
-<script src="lib/qr-code-styling.js"></script>
-<script src="lib/JsBarcode.all.min.js"></script>
-<script src="js/qr-capacity.js"></script>
-<script src="js/qr-validation.js"></script>
-<script src="js/qr-app.js"></script>
-<script src="js/barcode-app.js"></script>
-<script src="js/tabs.js"></script>
-</body>
+<script src="../lib/qr-code-styling.js"></script>
+<script src="../lib/JsBarcode.all.min.js"></script>
+<script src="../lib/supabase.js"></script>
+<script src="../lib/chart.umd.js"></script>
+<script src="../js/config.js"></script>
+<script src="../js/qr-capacity.js"></script>
+<script src="../js/qr-validation.js"></script>
+<script src="../js/analytics-core.js"></script>
+<script src="../js/storage.js"></script>
+<script src="../js/backend.js"></script>
+<script src="../js/qr-app.js"></script>
+<script src="../js/barcode-app.js"></script>
+<script src="../js/account.js"></script>
+<script src="../js/community.js"></script>
+<script src="../js/analytics.js"></script>
+<script src="../js/tabs.js"></script>
+<div id="test-results"></div><script src="integration.js"></script></body>
 </html>

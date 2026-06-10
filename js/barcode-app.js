@@ -74,6 +74,7 @@
     document.body.appendChild(a);
     a.click();
     a.remove();
+    if (window.Backend) Backend.recordGeneration("barcode", { format: els.format.value });
   }
 
   els.downloadSvg.addEventListener("click", function () {

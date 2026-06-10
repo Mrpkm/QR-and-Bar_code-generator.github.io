@@ -24,6 +24,10 @@
     logoSize: document.getElementById("qr-logo-size"),
     logoSizeValue: document.getElementById("qr-logo-size-value"),
     logoInfo: document.getElementById("qr-logo-info"),
+    track: document.getElementById("qr-track"),
+    trackLabelRow: document.getElementById("qr-track-label-row"),
+    trackLabel: document.getElementById("qr-track-label"),
+    trackInfo: document.getElementById("qr-track-info"),
     messages: document.getElementById("qr-messages"),
     preview: document.getElementById("qr-preview"),
     exportSize: document.getElementById("qr-export-size"),
@@ -183,6 +187,19 @@
 
     els.downloadPng.disabled = !info.fits;
     els.downloadSvg.disabled = !info.fits;
+
+    // --- Scan tracking (row visibility is managed by account.js: sign-in only) --
+    if (els.track) {
+      var isUrl = CSCore.isValidHttpUrl(data.trim());
+      els.track.disabled = !isUrl;
+      if (!isUrl && els.track.checked) els.track.checked = false;
+      els.trackLabelRow.hidden = !els.track.checked;
+      setMeta(els.trackInfo, els.track.checked
+        ? "The downloaded code will contain a short link on this site that redirects to your URL and counts the scan."
+        : isUrl
+          ? "Off: the code encodes your URL directly, works forever, and cannot be tracked."
+          : "Scan tracking is only available when the content is an http(s) URL.");
+    }
     return { messages: messages, canRender: info.fits };
   }
 
@@ -203,11 +220,11 @@
     qr.update(buildOptions(PREVIEW_SIZE));
   }
 
-  function buildOptions(size) {
+  function buildOptions(size, dataOverride) {
     return {
       width: size,
       height: size,
-      data: els.data.value,
+      data: dataOverride !== undefined ? dataOverride : els.data.value,
       margin: Math.max(8, Math.round(size * 0.04)), // keep a generous quiet zone
       qrOptions: { errorCorrectionLevel: ecLevel() },
       dotsOptions: { type: els.dotType.value, color: els.fg.value },
@@ -239,6 +256,7 @@
   els.eyeBall.addEventListener("change", render);
   els.logoSize.addEventListener("input", render);
   els.logoClear.addEventListener("click", function () { clearLogo(); });
+  if (els.track) els.track.addEventListener("change", render);
 
   els.logo.addEventListener("change", function () {
     var file = els.logo.files && els.logo.files[0];
@@ -251,14 +269,40 @@
     reader.readAsDataURL(file);
   });
 
+  function trackingActive() {
+    return els.track && els.track.checked && !els.track.disabled &&
+      window.Backend && Backend.currentUser() &&
+      CSCore.isValidHttpUrl(els.data.value.trim());
+  }
+
   function download(extension) {
     var size = parseInt(els.exportSize.value, 10);
-    // Render a detached high-resolution copy so exports are crisp.
-    var exportQr = new QRCodeStyling(Object.assign(
-      { type: extension === "svg" ? "svg" : "canvas" },
-      buildOptions(size)
-    ));
-    exportQr.download({ name: "qr-code", extension: extension });
+    var finish = function (encodedData) {
+      // Render a detached high-resolution copy so exports are crisp.
+      var exportQr = new QRCodeStyling(Object.assign(
+        { type: extension === "svg" ? "svg" : "canvas" },
+        buildOptions(size, encodedData)
+      ));
+      exportQr.download({ name: "qr-code", extension: extension });
+      if (window.Backend) {
+        Backend.recordGeneration("qr", {
+          ec: ecLevel(),
+          dotType: els.dotType.value,
+          fg: els.fg.value,
+          bg: els.bg.value,
+          hasLogo: !!logoDataUrl,
+          version: QRCapacity.minVersion(encodedData, ecLevel())
+        });
+      }
+    };
+    if (trackingActive()) {
+      // The downloaded code encodes the short redirect link, not the raw URL.
+      Backend.createTrackedCode(els.data.value.trim(), els.trackLabel.value.trim())
+        .then(function (code) { finish(code.url); },
+              function (err) { showMessages([{ level: "error", text: err.message }]); });
+    } else {
+      finish(els.data.value);
+    }
   }
   els.downloadPng.addEventListener("click", function () { download("png"); });
   els.downloadSvg.addEventListener("click", function () { download("svg"); });

@@ -82,7 +82,44 @@
     check("EAN13 invalid input: error shown", messagesText("bc-messages").indexOf("not valid for") !== -1);
     check("EAN13 invalid input: download disabled", document.getElementById("bc-download-png").disabled);
 
+    part3();
+  }
+
+  // --- 6. Local-only mode: cloud UI hides itself, generation recording works ---
+  function part3() {
+    check("local mode: account area hidden", document.getElementById("account-area").hidden);
+    check("local mode: community banner hidden", document.getElementById("community-banner").hidden);
+    check("local mode: track-scans row hidden", document.getElementById("qr-track-row").hidden);
+    check("local mode: Backend reports not cloud", !Backend.isCloud());
+
+    Backend.recordGeneration("qr", { ec: "M", fg: "#000000", bg: "#ffffff" }).then(function (res) {
+      check("local mode: recordGeneration resolves null (no community stats)", res === null);
+      return CSStorage.getEvents();
+    }).then(function (events) {
+      check("local mode: generation event stored in IndexedDB", events.length >= 1);
+
+      // --- 7. Analytics tab renders the guest dashboard ---
+      document.getElementById("tab-analytics").click();
+      var tries = 0;
+      (function pollAnalytics() {
+        var root = document.getElementById("analytics-root");
+        var rendered = root.textContent.indexOf("Codes created") !== -1;
+        if (!rendered && ++tries < 40) return setTimeout(pollAnalytics, 100);
+        check("analytics: guest dashboard rendered", rendered);
+        check("analytics: achievements section present", root.textContent.indexOf("Achievements") !== -1);
+        check("analytics: personal milestones present", root.textContent.indexOf("Personal milestones") !== -1);
+        finish();
+      })();
+    }, function () {
+      check("local mode: async checks did not throw", false);
+      finish();
+    });
+  }
+
+  function finish() {
     document.getElementById("test-results").textContent = "RESULTS::" + results.join("::");
+    // When served by a test runner, also push results out (no-op on file://).
+    try { fetch("/__results", { method: "POST", body: results.join("\n") }); } catch (e) { /* ignore */ }
   }
 
   pollSvg();

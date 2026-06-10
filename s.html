@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Redirecting…</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<style>
+  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+         display: flex; min-height: 100vh; align-items: center; justify-content: center;
+         background: #f5f6f8; color: #1c2330; }
+  .box { text-align: center; padding: 2rem; }
+  .err { color: #b42318; }
+</style>
+</head>
+<body>
+<div class="box" id="status">Redirecting…</div>
+
+<script src="js/config.js"></script>
+<script src="js/analytics-core.js"></script>
+<script>
+/* Scan-redirect page for tracked QR codes. Kept tiny on purpose: a scanner's
+ * phone should reach the target in one network round trip. Resolves the short
+ * id to its target URL and logs the scan in a single RPC call (plain fetch —
+ * no client library needed for an anonymous RPC), then redirects.
+ * Privacy: device class comes from the user agent, country from the browser
+ * timezone; no IP-based lookups, no third parties.
+ */
+(function () {
+  "use strict";
+
+  function fail(message) {
+    var el = document.getElementById("status");
+    el.textContent = message;
+    el.className = "box err";
+  }
+
+  var shortId = new URLSearchParams(location.search).get("c");
+  if (!shortId || !/^[1-9A-HJ-NP-Za-km-z]{8}$/.test(shortId)) {
+    fail("This link is incomplete or malformed.");
+    return;
+  }
+  if (!CODESAFE_CONFIG.SUPABASE_URL || !CODESAFE_CONFIG.SUPABASE_ANON_KEY) {
+    fail("This tracked link is unavailable: the site is running without cloud features.");
+    return;
+  }
+
+  var timeZone = null;
+  try { timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (e) { /* old engines */ }
+
+  // "Unique scans" = first scan of this code from this browser (best-effort).
+  var repeat = false;
+  try {
+    var seenKey = "codesafe:scanned:" + shortId;
+    repeat = localStorage.getItem(seenKey) === "1";
+    localStorage.setItem(seenKey, "1");
+  } catch (e) { /* storage blocked: count as unique */ }
+
+  fetch(CODESAFE_CONFIG.SUPABASE_URL + "/rest/v1/rpc/resolve_and_log_scan", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "apikey": CODESAFE_CONFIG.SUPABASE_ANON_KEY,
+      "Authorization": "Bearer " + CODESAFE_CONFIG.SUPABASE_ANON_KEY
+    },
+    body: JSON.stringify({
+      p_short_id: shortId,
+      p_device_type: CSCore.deviceType(navigator.userAgent),
+      p_country: CSCore.countryFromTimeZone(timeZone),
+      p_repeat: repeat
+    })
+  }).then(function (res) {
+    if (!res.ok) throw new Error("rpc failed");
+    return res.json();
+  }).then(function (target) {
+    // Defense in depth: the DB also constrains target_url to http(s).
+    if (typeof target === "string" && CSCore.isValidHttpUrl(target)) {
+      location.replace(target);
+    } else {
+      fail("This tracked link no longer exists.");
+    }
+  }).catch(function () {
+    fail("This tracked link is temporarily unavailable. Please try again.");
+  });
+})();
+</script>
+</body>
+</html>
