@@ -85,35 +85,62 @@
     part3();
   }
 
-  // --- 6. Local-only mode: cloud UI hides itself, generation recording works ---
+  // --- 6. Mode-dependent UI: cloud UI hides in local mode, shows signed-out in cloud ---
   function part3() {
-    check("local mode: account area hidden", document.getElementById("account-area").hidden);
-    check("local mode: community banner hidden", document.getElementById("community-banner").hidden);
-    check("local mode: track-scans row hidden", document.getElementById("qr-track-row").hidden);
-    check("local mode: Backend reports not cloud", !Backend.isCloud());
+    // The hidden attribute must actually hide, even where CSS sets display
+    // (regression: .modal-overlay's flex once kept the auth modal stuck open).
+    check("auth modal visually hidden on load",
+      getComputedStyle(document.getElementById("auth-modal")).display === "none");
+    check("track-scans row hidden while signed out", document.getElementById("qr-track-row").hidden);
 
-    Backend.recordGeneration("qr", { ec: "M", fg: "#000000", bg: "#ffffff" }).then(function (res) {
-      check("local mode: recordGeneration resolves null (no community stats)", res === null);
-      return CSStorage.getEvents();
-    }).then(function (events) {
-      check("local mode: generation event stored in IndexedDB", events.length >= 1);
+    if (Backend.isCloud()) {
+      check("cloud mode: account area visible", !document.getElementById("account-area").hidden);
+      // Don't call recordGeneration here — it would inflate the real community
+      // counter. Store the local event directly and read public stats instead.
+      Backend.getCommunityStats().then(function (stats) {
+        check("cloud mode: community stats fetched",
+          !!stats && typeof stats.total === "number" && typeof stats.goal === "number");
+        return CSStorage.addEvent({ kind: "qr", at: new Date().getTime(), meta: {} });
+      }).then(function () {
+        return CSStorage.getEvents();
+      }).then(function (events) {
+        check("generation event stored in IndexedDB", events.length >= 1);
+        part4();
+      }, function () {
+        check("cloud mode: async checks did not throw", false);
+        part4();
+      });
+    } else {
+      check("local mode: account area hidden", document.getElementById("account-area").hidden);
+      check("local mode: account area visually hidden",
+        getComputedStyle(document.getElementById("account-area")).display === "none");
+      check("local mode: community banner hidden", document.getElementById("community-banner").hidden);
+      Backend.recordGeneration("qr", { ec: "M", fg: "#000000", bg: "#ffffff" }).then(function (res) {
+        check("local mode: recordGeneration resolves null (no community stats)", res === null);
+        return CSStorage.getEvents();
+      }).then(function (events) {
+        check("generation event stored in IndexedDB", events.length >= 1);
+        part4();
+      }, function () {
+        check("local mode: async checks did not throw", false);
+        part4();
+      });
+    }
+  }
 
-      // --- 7. Analytics tab renders the guest dashboard ---
-      document.getElementById("tab-analytics").click();
-      var tries = 0;
-      (function pollAnalytics() {
-        var root = document.getElementById("analytics-root");
-        var rendered = root.textContent.indexOf("Codes created") !== -1;
-        if (!rendered && ++tries < 40) return setTimeout(pollAnalytics, 100);
-        check("analytics: guest dashboard rendered", rendered);
-        check("analytics: achievements section present", root.textContent.indexOf("Achievements") !== -1);
-        check("analytics: personal milestones present", root.textContent.indexOf("Personal milestones") !== -1);
-        finish();
-      })();
-    }, function () {
-      check("local mode: async checks did not throw", false);
+  // --- 7. Analytics tab renders the guest dashboard (both modes) ---
+  function part4() {
+    document.getElementById("tab-analytics").click();
+    var tries = 0;
+    (function pollAnalytics() {
+      var root = document.getElementById("analytics-root");
+      var rendered = root.textContent.indexOf("Codes created") !== -1;
+      if (!rendered && ++tries < 40) return setTimeout(pollAnalytics, 100);
+      check("analytics: guest dashboard rendered", rendered);
+      check("analytics: achievements section present", root.textContent.indexOf("Achievements") !== -1);
+      check("analytics: personal milestones present", root.textContent.indexOf("Personal milestones") !== -1);
       finish();
-    });
+    })();
   }
 
   function finish() {
